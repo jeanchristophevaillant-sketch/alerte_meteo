@@ -1,0 +1,31 @@
+name: Monitor Weather Alerts
+on:
+  schedule:
+    # Les heures sont en UTC. 8h, 11h et 14h (heure Paris) = 7h, 10h, 13h UTC environ
+    - cron: '0 7,10,13 * * *'
+  workflow_dispatch: # Pour le lancer à la main pour tester
+
+jobs:
+  run_check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install requests
+      - name: Run script
+        run: python alerte_meteo.py
+      - name: Commit changes (sent_alerts.json)
+        run: |
+          git config --global user.name 'WeatherBot'
+          git config --global user.email 'bot@github.com'
+          git add sent_alerts.json
+          git commit -m "Update sent alerts history" || exit 0
+          git push
+      - name: Run script
+        run: python alerte_meteo.py
+        env:
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }} # Cette ligne est cruciale
