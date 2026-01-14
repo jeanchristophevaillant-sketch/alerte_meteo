@@ -8,6 +8,13 @@ from email.message import EmailMessage
 CONFIG_FILE = 'config.json'
 SENT_ALERTS_FILE = 'sent_alerts.json'
 
+def degree_to_direction(deg):
+    """Convertit les degrés (0-360) en direction cardinale (N, NE, etc.)"""
+    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", 
+                  "S", "SSO", "SO", "OSO", "O", "ONO", "NO", "NNO"]
+    index = int((deg + 11.25) / 22.5) % 16
+    return directions[index]
+
 def load_json(filename):
     try:
         with open(filename, 'r') as f:
@@ -28,7 +35,6 @@ def check_weather(lat, lon, threshold, dir_min, dir_max):
         response = requests.get(url).json()
         hourly = response.get('hourly', {})
         
-        # Données de demain (index 24 à 48)
         speeds = hourly.get('wind_speed_10m', [])[24:48]
         directions = hourly.get('wind_direction_10m', [])[24:48]
         times = hourly.get('time', [])[24:48]
@@ -37,10 +43,7 @@ def check_weather(lat, lon, threshold, dir_min, dir_max):
         is_good_day = False
 
         for t, speed, direction in zip(times, speeds, directions):
-            # On extrait juste l'heure (ex: 14:00)
             hour_str = datetime.fromisoformat(t).strftime('%H:%M')
-            
-            # On vérifie si ce créneau précis est bon
             meets_criteria = speed >= threshold and dir_min <= direction <= dir_max
             if meets_criteria:
                 is_good_day = True
@@ -48,7 +51,7 @@ def check_weather(lat, lon, threshold, dir_min, dir_max):
             forecast_details.append({
                 "hour": hour_str,
                 "speed": speed,
-                "direction": direction,
+                "dir_str": degree_to_direction(direction), # Conversion ici
                 "valid": meets_criteria
             })
             
@@ -83,7 +86,7 @@ def main():
 
     for alert in configs:
         alert_id = str(alert.get('id'))
-        lieu = alert.get('lieu')
+        lieu = alert['lieu']
         
         if sent_alerts.get(alert_id) == tomorrow_str:
             print(f"⏭️ {lieu} déjà fait.")
@@ -96,17 +99,15 @@ def main():
         
         if is_valid:
             subject = f"⚠️ PLANNING VENT DEMAIN ({tomorrow_str}) : {lieu}"
-            
-            # Construction du corps du mail avec le tableau horaire
-            body = f"Salut JC !\n\nVoici les prévisions détaillées pour DEMAIN à {lieu} :\n"
-            body += f"(Seuil configuré : {alert['seuil_vent']} kts)\n\n"
-            body += "HEURE | VENT (kts) | DIRECTION\n"
-            body += "-------------------------------\n"
+            body = f"Salut JC !\n\nVoici les prévisions pour DEMAIN à {lieu} :\n"
+            body += f"(Seuil : {alert['seuil_vent']} kts)\n\n"
+            body += "HEURE | VENT (kts) | DIR\n"
+            body += "--------------------------\n"
             
             for f in forecast:
-                # On ajoute une petite étoile si le créneau est bon
                 marker = "⭐" if f['valid'] else "  "
-                body += f"{f['hour']} | {f['speed']:>4} kts  | {f['direction']}° {marker}\n"
+                # On utilise :<3 pour que la direction soit bien alignée (ex: "N  ", "NNE")
+                body += f"{f['hour']} | {f['speed']:>4} kts  | {f['dir_str']:<3} {marker}\n"
             
             body += "\nBonne session !"
             
