@@ -69,9 +69,9 @@ def main():
         lieu = alert['lieu']
         
         # Vérifier si déjà envoyé aujourd'hui pour cette alerte précise
-        if sent_alerts.get(alert_id) == today:
-            print(f"Déjà alerté aujourd'hui pour {lieu}. On passe.")
-            continue
+        #if sent_alerts.get(alert_id) == today:
+         #   print(f"Déjà alerté aujourd'hui pour {lieu}. On passe.")
+          #  continue
             
         is_valid, speed, direction = check_weather(
             alert['lat'], alert['lon'], alert['seuil_vent'], 
