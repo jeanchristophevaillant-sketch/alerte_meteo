@@ -2,7 +2,7 @@ import requests
 import json
 import os
 import smtplib
-from datetime import datetime
+from datetime import datetime, timedelta
 from email.message import EmailMessage
 
 CONFIG_FILE = 'config.json'
@@ -23,18 +23,23 @@ def save_json(filename, data):
         json.dump(data, f, indent=4)
 
 def check_weather(lat, lon, threshold, dir_min, dir_max):
-    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn&forecast_days=1"
+    # On demande 2 jours (aujourd'hui + demain)
+    url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&hourly=wind_speed_10m,wind_direction_10m&wind_speed_unit=kn&forecast_days=2"
     try:
         response = requests.get(url).json()
         hourly = response.get('hourly', {})
-        speeds = hourly.get('wind_speed_10m', [])
-        directions = hourly.get('wind_direction_10m', [])
         
-        for speed, direction in zip(speeds, directions):
+        # Extraction des données de DEMAIN uniquement (les 24 dernières heures du pack de 48h)
+        # L'index [24:48] correspond exactement à la deuxième journée
+        speeds_tomorrow = hourly.get('wind_speed_10m', [])[24:48]
+        directions_tomorrow = hourly.get('wind_direction_10m', [])[24:48]
+        
+        # On cherche s'il y a au moins un créneau favorable demain
+        for speed, direction in zip(speeds_tomorrow, directions_tomorrow):
             if speed >= threshold and dir_min <= direction <= dir_max:
                 return True, speed, direction
     except Exception as e:
-        print(f"Erreur API Meteo : {e}")
+        print(f"❌ Erreur API Meteo : {e}")
     return False, 0, 0
 
 def send_email(subject, body):
@@ -46,7 +51,7 @@ def send_email(subject, body):
 
     password = os.environ.get('EMAIL_PASSWORD')
     if not password:
-        print("❌ Erreur: Secret EMAIL_PASSWORD introuvable dans GitHub.")
+        print("❌ Erreur: Secret EMAIL_PASSWORD manquant.")
         return False
 
     try:
@@ -60,11 +65,16 @@ def send_email(subject, body):
         return False
 
 def main():
-    print(f"--- Démarrage du script le {datetime.now().strftime('%Y-%m-%d %H:%M')} ---")
+    now = datetime.now()
+    # Calcul de la date de demain
+    tomorrow = now + timedelta(days=1)
+    tomorrow_str = tomorrow.strftime('%Y-%m-%d')
+    
+    print(f"--- Script lancé le {now.strftime('%Y-%m-%d %H:%M')} ---")
+    print(f"🎯 Cible des prévisions : DEMAIN ({tomorrow_str})")
     
     configs = load_json(CONFIG_FILE)
     sent_alerts = load_json(SENT_ALERTS_FILE)
-    today = datetime.now().strftime('%Y-%m-%d')
     
     print(f"Mémoire actuelle : {sent_alerts}")
 
@@ -72,11 +82,11 @@ def main():
         alert_id = str(alert.get('id'))
         lieu = alert.get('lieu')
         
-        print(f"\n🔎 Vérification de : {lieu} (ID: {alert_id})")
+        print(f"\n🔎 Analyse pour demain à : {lieu}")
 
-        # Vérification anti-spam
-        if sent_alerts.get(alert_id) == today:
-            print(f"⏭️  Déjà alerté aujourd'hui pour {lieu}. On passe au suivant.")
+        # On vérifie si on a déjà prévenu pour la date de DEMAIN
+        if sent_alerts.get(alert_id) == tomorrow_str:
+            print(f"⏭️  Alerte déjà envoyée précédemment pour le {tomorrow_str}. Passage au suivant.")
             continue
             
         is_valid, speed, direction = check_weather(
@@ -85,17 +95,16 @@ def main():
         )
         
         if is_valid:
-            print(f"🎯 Conditions remplies ! ({speed} kts, {direction}°)")
-            subject = f"⚠️ ALERTE VENT : {lieu}"
-            body = f"Les conditions sont réunies à {lieu} !\nVent prévu : {speed} noeuds\nDirection : {direction}°"
+            print(f"🎯 Conditions favorables trouvées pour demain ! ({speed} kts, {direction}°)")
+            subject = f"⚠️ ALERTE DEMAIN ({tomorrow_str}) : {lieu}"
+            body = f"Salut JC !\n\nLes prévisions pour DEMAIN ({tomorrow_str}) sont bonnes à {lieu} :\n- Vent : {speed} noeuds\n- Direction : {direction}°\n\nPrépare le matos !"
             
             if send_email(subject, body):
-                # On ne met à jour la mémoire QUE si le mail est parti
-                sent_alerts[alert_id] = today
+                # On enregistre la date cible (demain) dans la mémoire
+                sent_alerts[alert_id] = tomorrow_str
         else:
-            print(f"🍃 Conditions non remplies pour {lieu}.")
+            print(f"🍃 Pas de conditions favorables pour demain à {lieu}.")
             
-    # Sauvegarde finale de la mémoire
     save_json(SENT_ALERTS_FILE, sent_alerts)
     print("\n--- Fin du script ---")
 
