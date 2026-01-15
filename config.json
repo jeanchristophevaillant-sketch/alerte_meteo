@@ -1,6 +1,6 @@
 [
     {
-        "id":1,
+        "id":10,
         "lieu": "Cap d'Agde",
         "lat": 43.2743,
         "lon": 3.5002,
@@ -9,7 +9,7 @@
         "dir_max": 180
     },
     {
-        "id":2,
+        "id":20,
         "lieu": "Cap d'Agde",
         "lat": 43.2743,
         "lon": 3.5002,
@@ -18,7 +18,7 @@
         "dir_max": 270
     },
     {
-        "id": 3,
+        "id": 30,
         "lieu": "Sainte Marie",
         "lat": 42.7271,
         "lon": 3.0389,
@@ -27,7 +27,7 @@
         "dir_max": 180
     },
     {
-        "id": 4,
+        "id": 40,
         "lieu": "Port la Nouvelle",
         "lat": 43.0315,
         "lon": 3.0679,
