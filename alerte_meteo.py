@@ -51,7 +51,7 @@ def check_weather(lat, lon, threshold, dir_min, dir_max):
             forecast_details.append({
                 "hour": hour_str,
                 "speed": speed,
-                "dir_str": degree_to_direction(direction), # Conversion ici
+                "dir_str": degree_to_direction(direction),
                 "valid": meets_criteria
             })
             
@@ -98,15 +98,20 @@ def main():
         )
         
         if is_valid:
+            # On prépare le rappel de la configuration en texte
+            dir_min_txt = degree_to_direction(alert['dir_min'])
+            dir_max_txt = degree_to_direction(alert['dir_max'])
+            
             subject = f"⚠️ PLANNING VENT DEMAIN ({tomorrow_str}) : {lieu}"
+            
+            # Construction du corps du mail avec rappel des seuils
             body = f"Salut JC !\n\nVoici les prévisions pour DEMAIN à {lieu} :\n"
-            body += f"(Seuil : {alert['seuil_vent']} kts)\n\n"
+            body += f"⚙️ Config : Min {alert['seuil_vent']} kts | Secteur {dir_min_txt} - {dir_max_txt}\n\n"
             body += "HEURE | VENT (kts) | DIR\n"
             body += "--------------------------\n"
             
             for f in forecast:
                 marker = "⭐" if f['valid'] else "  "
-                # On utilise :<3 pour que la direction soit bien alignée (ex: "N  ", "NNE")
                 body += f"{f['hour']} | {f['speed']:>4} kts  | {f['dir_str']:<3} {marker}\n"
             
             body += "\nBonne session !"
